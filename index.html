@@ -1,0 +1,363 @@
+
+import React, { useState, useEffect, useCallback } from 'react';
+import { MenuItem, RecommendationResponse } from './types';
+import { getLocalRecommendations, getAIPairingSuggestion } from './services/geminiService';
+
+// --- Constants ---
+const MENU_ITEMS: MenuItem[] = [
+  { id: '1', name: 'Truffle Scallops', description: 'Pan-seared Hokkaido scallops with black truffle shavings and parsnip purée.', price: '$28', category: 'Appetizers', image: 'https://picsum.photos/seed/scallops/600/400' },
+  { id: '2', name: 'Wagyu A5 Striploin', description: 'Gently torched Miyazaki Wagyu with pickled shimeji mushrooms and red wine jus.', price: '$110', category: 'Mains', image: 'https://picsum.photos/seed/wagyu/600/400' },
+  { id: '3', name: 'Saffron Risotto', description: 'Acquerello rice infused with Persian saffron and topped with gold leaf.', price: '$42', category: 'Mains', image: 'https://picsum.photos/seed/risotto/600/400' },
+  { id: '4', name: 'Deconstructed Tiramisu', description: 'Mascarpone mousse, espresso-soaked savoiardi, and 70% dark chocolate soil.', price: '$18', category: 'Desserts', image: 'https://picsum.photos/seed/tiramisu/600/400' },
+  { id: '5', name: 'Wild Mushroom Tart', description: 'Crispy pastry with seasonal foraged mushrooms and goat cheese crème.', price: '$24', category: 'Appetizers', image: 'https://picsum.photos/seed/mushrooms/600/400' },
+  { id: '6', name: 'Lobster Thermidor', description: 'Atlantic lobster in a creamy brandy sauce, gratinated with Gruyère.', price: '$75', category: 'Mains', image: 'https://picsum.photos/seed/lobster/600/400' },
+];
+
+const GALLERY_IMAGES = [
+  'https://picsum.photos/seed/rest1/800/1000',
+  'https://picsum.photos/seed/rest2/800/800',
+  'https://picsum.photos/seed/rest3/1000/800',
+  'https://picsum.photos/seed/rest4/800/1200',
+  'https://picsum.photos/seed/rest5/1200/800',
+  'https://picsum.photos/seed/rest6/800/800',
+];
+
+// --- Components ---
+
+const Navbar: React.FC = () => {
+  const [isScrolled, setIsScrolled] = useState(false);
+
+  useEffect(() => {
+    const handleScroll = () => setIsScrolled(window.scrollY > 50);
+    window.addEventListener('scroll', handleScroll);
+    return () => window.removeEventListener('scroll', handleScroll);
+  }, []);
+
+  return (
+    <nav className={`fixed top-0 left-0 right-0 z-50 transition-all duration-300 ${isScrolled ? 'bg-glass py-4 shadow-sm' : 'bg-transparent py-6'}`}>
+      <div className="container mx-auto px-6 flex justify-between items-center">
+        <a href="#" className="text-2xl font-serif font-bold tracking-tighter">LUMIÈRE</a>
+        <div className="hidden md:flex space-x-8 text-sm font-medium tracking-widest uppercase">
+          <a href="#about" className="hover:text-amber-600 transition-colors">About</a>
+          <a href="#menu" className="hover:text-amber-600 transition-colors">Menu</a>
+          <a href="#gallery" className="hover:text-amber-600 transition-colors">Gallery</a>
+          <a href="#location" className="hover:text-amber-600 transition-colors">Location</a>
+          <a href="#contact" className="hover:text-amber-600 transition-colors">Contact</a>
+        </div>
+        <a href="#contact" className="bg-stone-900 text-white px-6 py-2 text-xs font-bold uppercase tracking-widest hover:bg-amber-600 transition-colors">Book Now</a>
+      </div>
+    </nav>
+  );
+};
+
+const Hero: React.FC = () => (
+  <header className="relative h-screen flex items-center justify-center overflow-hidden">
+    <div className="absolute inset-0 z-0">
+      <img src="https://images.unsplash.com/photo-1514362545857-3bc16c4c7d1b?auto=format&fit=crop&q=80&w=2000" className="w-full h-full object-cover" alt="Hero background" />
+      <div className="absolute inset-0 bg-black/40"></div>
+    </div>
+    <div className="relative z-10 text-center text-white px-6">
+      <h1 className="text-5xl md:text-8xl font-serif mb-6 leading-tight">The Art of <br/> Fine Dining</h1>
+      <p className="text-lg md:text-xl font-light mb-10 tracking-widest uppercase italic">Elegance in Every Bite</p>
+      <div className="flex flex-col md:flex-row gap-4 justify-center">
+        <a href="#menu" className="bg-white text-stone-900 px-10 py-4 font-bold uppercase tracking-widest hover:bg-amber-600 hover:text-white transition-all">Explore Menu</a>
+        <a href="#about" className="border border-white text-white px-10 py-4 font-bold uppercase tracking-widest hover:bg-white hover:text-stone-900 transition-all">Our Story</a>
+      </div>
+    </div>
+  </header>
+);
+
+const About: React.FC = () => (
+  <section id="about" className="py-24 bg-white">
+    <div className="container mx-auto px-6">
+      <div className="grid md:grid-cols-2 gap-16 items-center">
+        <div className="relative">
+          <img src="https://picsum.photos/seed/chef/800/1000" alt="Chef plating" className="w-full h-[600px] object-cover shadow-2xl" />
+          <div className="absolute -bottom-10 -right-10 bg-amber-600 text-white p-12 hidden lg:block">
+            <p className="text-4xl font-serif mb-2">15+</p>
+            <p className="text-xs uppercase tracking-widest">Years of Excellence</p>
+          </div>
+        </div>
+        <div>
+          <h2 className="text-4xl md:text-5xl font-serif mb-8 text-stone-800">A Culinary Sanctuary in the Heart of the City</h2>
+          <p className="text-lg text-stone-600 mb-6 leading-relaxed">
+            Founded in 2008, Lumière Gastronomy was born from a vision to blend classical French techniques with modern flavor profiles. Every ingredient is ethically sourced from local artisans who share our passion for perfection.
+          </p>
+          <p className="text-lg text-stone-600 mb-10 leading-relaxed">
+            Led by Executive Chef Julian Vance, our kitchen is a laboratory of taste where seasonal produce meets avant-garde presentation. We believe that dining is not just about sustenance, but an evocative journey for the senses.
+          </p>
+          <div className="flex items-center space-x-4">
+             <div className="w-12 h-px bg-amber-600"></div>
+             <p className="font-serif italic text-xl">Julian Vance, Executive Chef</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+);
+
+const MenuSection: React.FC = () => {
+  const [activeCategory, setActiveCategory] = useState<MenuItem['category']>('Appetizers');
+  const [pairing, setPairing] = useState<string | null>(null);
+  const [loadingPairing, setLoadingPairing] = useState(false);
+
+  const handlePairingRequest = async (dish: string) => {
+    setLoadingPairing(true);
+    const result = await getAIPairingSuggestion(dish);
+    setPairing(result);
+    setLoadingPairing(false);
+  };
+
+  return (
+    <section id="menu" className="py-24 bg-stone-50">
+      <div className="container mx-auto px-6">
+        <div className="text-center mb-16">
+          <h2 className="text-4xl md:text-5xl font-serif mb-4">Savor the Moment</h2>
+          <p className="text-stone-500 uppercase tracking-widest text-sm">Our Seasonal Menu</p>
+        </div>
+
+        <div className="flex flex-wrap justify-center gap-4 mb-12">
+          {['Appetizers', 'Mains', 'Desserts'].map((cat) => (
+            <button
+              key={cat}
+              onClick={() => setActiveCategory(cat as any)}
+              className={`px-8 py-2 rounded-full border transition-all duration-300 ${activeCategory === cat ? 'bg-stone-900 text-white border-stone-900' : 'bg-transparent text-stone-600 border-stone-300 hover:border-stone-900'}`}
+            >
+              {cat}
+            </button>
+          ))}
+        </div>
+
+        <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8">
+          {MENU_ITEMS.filter(item => item.category === activeCategory).map((item) => (
+            <div key={item.id} className="group bg-white p-4 shadow-sm hover:shadow-xl transition-all duration-500 rounded-lg overflow-hidden">
+              <div className="relative h-64 mb-6 overflow-hidden rounded-md">
+                <img src={item.image} alt={item.name} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700" />
+                <div className="absolute top-4 right-4 bg-white/90 px-3 py-1 text-sm font-bold text-stone-900">
+                  {item.price}
+                </div>
+              </div>
+              <h3 className="text-xl font-serif mb-2">{item.name}</h3>
+              <p className="text-stone-500 text-sm mb-6 h-12 line-clamp-2">{item.description}</p>
+              <button 
+                onClick={() => handlePairingRequest(item.name)}
+                className="text-xs font-bold uppercase tracking-wider text-amber-600 hover:text-amber-700 flex items-center space-x-2"
+              >
+                <span>Ask Sommelier AI</span>
+                <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M10.293 3.293a1 1 0 011.414 0l6 6a1 1 0 010 1.414l-6 6a1 1 0 01-1.414-1.414L14.586 11H3a1 1 0 110-2h11.586l-4.293-4.293a1 1 0 010-1.414z" clipRule="evenodd" /></svg>
+              </button>
+            </div>
+          ))}
+        </div>
+
+        {pairing && (
+          <div className="mt-16 bg-stone-900 text-white p-8 rounded-2xl max-w-2xl mx-auto shadow-2xl animate-fade-in">
+             <div className="flex items-center justify-between mb-4">
+                <h4 className="font-serif text-xl text-amber-500 italic">Chef's Sommelier Suggestion</h4>
+                <button onClick={() => setPairing(null)} className="text-stone-400 hover:text-white">&times;</button>
+             </div>
+             <p className="text-stone-300 leading-relaxed italic">"{pairing}"</p>
+          </div>
+        )}
+      </div>
+    </section>
+  );
+};
+
+const Gallery: React.FC = () => (
+  <section id="gallery" className="py-24 bg-white overflow-hidden">
+    <div className="container mx-auto px-6">
+        <div className="text-center mb-16">
+            <h2 className="text-4xl md:text-5xl font-serif mb-4">Visual Journey</h2>
+            <p className="text-stone-500 uppercase tracking-widest text-sm">Atmosphere & Aesthetics</p>
+        </div>
+        <div className="columns-1 sm:columns-2 lg:columns-3 gap-6 space-y-6">
+            {GALLERY_IMAGES.map((img, i) => (
+                <div key={i} className="relative group overflow-hidden rounded-lg break-inside-avoid shadow-lg">
+                    <img src={img} alt={`Gallery item ${i}`} className="w-full h-auto object-cover group-hover:scale-105 transition-transform duration-700" />
+                    <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity duration-500 flex items-center justify-center">
+                        <span className="text-white text-xs tracking-widest uppercase border border-white px-4 py-2">View Detail</span>
+                    </div>
+                </div>
+            ))}
+        </div>
+    </div>
+  </section>
+);
+
+const Location: React.FC = () => {
+    const [recommendations, setRecommendations] = useState<RecommendationResponse | null>(null);
+    const [loading, setLoading] = useState(false);
+
+    useEffect(() => {
+        const fetchRecs = async () => {
+            setLoading(true);
+            const data = await getLocalRecommendations(48.8584, 2.2945); // Example: Paris coords
+            setRecommendations(data);
+            setLoading(false);
+        };
+        fetchRecs();
+    }, []);
+
+    return (
+        <section id="location" className="py-24 bg-stone-50">
+            <div className="container mx-auto px-6">
+                <div className="grid lg:grid-cols-3 gap-12">
+                    <div className="lg:col-span-1">
+                        <h2 className="text-4xl font-serif mb-6">Find Us</h2>
+                        <div className="space-y-6 mb-12">
+                            <div>
+                                <h4 className="font-bold text-xs uppercase tracking-widest mb-2 text-stone-400">Address</h4>
+                                <p className="text-stone-800">123 Culinary Avenue, Suite 100<br/>New York, NY 10001</p>
+                            </div>
+                            <div>
+                                <h4 className="font-bold text-xs uppercase tracking-widest mb-2 text-stone-400">Hours</h4>
+                                <p className="text-stone-800">Tue – Thu: 17:00 – 22:00<br/>Fri – Sat: 17:00 – 23:30<br/>Sun: 12:00 – 16:00 (Brunch)</p>
+                            </div>
+                            <div>
+                                <h4 className="font-bold text-xs uppercase tracking-widest mb-2 text-stone-400">In the Neighborhood</h4>
+                                {loading ? (
+                                    <p className="text-sm text-stone-400 italic">Finding local treasures...</p>
+                                ) : (
+                                    <div className="space-y-4">
+                                        <p className="text-sm text-stone-600 leading-relaxed">{recommendations?.text}</p>
+                                        <div className="flex flex-wrap gap-2">
+                                            {recommendations?.sources.map((src, idx) => (
+                                                src.uri && (
+                                                    <a key={idx} href={src.uri} target="_blank" rel="noopener noreferrer" className="text-xs bg-white px-3 py-1 rounded-full border border-stone-200 hover:border-amber-600 transition-colors">
+                                                        {src.title}
+                                                    </a>
+                                                )
+                                            ))}
+                                        </div>
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+                    </div>
+                    <div className="lg:col-span-2 relative h-[500px] rounded-2xl overflow-hidden shadow-2xl">
+                        {/* Static Google Maps Embed for visualization */}
+                        <iframe 
+                            src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d193595.15830869428!2d-74.119763973046!3d40.69766374874431!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x89c24fa5d33f083b%3A0xc80b8f06e177fe62!2sNew%20York%2C%20NY!5e0!3m2!1sen!2sus!4v1625000000000!5m2!1sen!2sus" 
+                            width="100%" height="100%" style={{ border: 0 }} allowFullScreen loading="lazy"
+                        ></iframe>
+                    </div>
+                </div>
+            </div>
+        </section>
+    );
+};
+
+const Contact: React.FC = () => {
+    const [formState, setFormState] = useState({ name: '', email: '', date: '', guests: '2', message: '' });
+    const [status, setStatus] = useState<null | 'success'>(null);
+
+    const handleSubmit = (e: React.FormEvent) => {
+        e.preventDefault();
+        setStatus('success');
+        setTimeout(() => setStatus(null), 5000);
+    };
+
+    return (
+        <section id="contact" className="py-24 bg-white">
+            <div className="container mx-auto px-6 max-w-4xl">
+                <div className="text-center mb-16">
+                    <h2 className="text-4xl md:text-5xl font-serif mb-4">Secure Your Table</h2>
+                    <p className="text-stone-500 uppercase tracking-widest text-sm">Reservations Recommended</p>
+                </div>
+                <div className="bg-stone-50 p-8 md:p-12 rounded-3xl shadow-lg border border-stone-100">
+                    {status === 'success' ? (
+                        <div className="text-center py-20">
+                            <div className="w-16 h-16 bg-green-100 text-green-600 rounded-full flex items-center justify-center mx-auto mb-6">
+                                <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7"></path></svg>
+                            </div>
+                            <h3 className="text-2xl font-serif mb-2">Reservation Received</h3>
+                            <p className="text-stone-600">We will confirm your booking via email within 2 hours.</p>
+                        </div>
+                    ) : (
+                        <form onSubmit={handleSubmit} className="grid md:grid-cols-2 gap-8">
+                            <div className="space-y-2">
+                                <label className="text-xs font-bold uppercase tracking-widest text-stone-400">Name</label>
+                                <input required type="text" value={formState.name} onChange={e => setFormState({...formState, name: e.target.value})} className="w-full bg-white border-b border-stone-300 py-3 px-1 focus:border-stone-900 outline-none transition-colors" placeholder="Full Name" />
+                            </div>
+                            <div className="space-y-2">
+                                <label className="text-xs font-bold uppercase tracking-widest text-stone-400">Email</label>
+                                <input required type="email" value={formState.email} onChange={e => setFormState({...formState, email: e.target.value})} className="w-full bg-white border-b border-stone-300 py-3 px-1 focus:border-stone-900 outline-none transition-colors" placeholder="Email Address" />
+                            </div>
+                            <div className="space-y-2">
+                                <label className="text-xs font-bold uppercase tracking-widest text-stone-400">Date</label>
+                                <input required type="date" value={formState.date} onChange={e => setFormState({...formState, date: e.target.value})} className="w-full bg-white border-b border-stone-300 py-3 px-1 focus:border-stone-900 outline-none transition-colors" />
+                            </div>
+                            <div className="space-y-2">
+                                <label className="text-xs font-bold uppercase tracking-widest text-stone-400">Guests</label>
+                                <select value={formState.guests} onChange={e => setFormState({...formState, guests: e.target.value})} className="w-full bg-white border-b border-stone-300 py-3 px-1 focus:border-stone-900 outline-none transition-colors">
+                                    {[1,2,3,4,5,6,7,8].map(n => <option key={n} value={n}>{n} {n === 1 ? 'Person' : 'People'}</option>)}
+                                </select>
+                            </div>
+                            <div className="md:col-span-2 space-y-2">
+                                <label className="text-xs font-bold uppercase tracking-widest text-stone-400">Message (Optional)</label>
+                                <textarea rows={4} value={formState.message} onChange={e => setFormState({...formState, message: e.target.value})} className="w-full bg-white border-b border-stone-300 py-3 px-1 focus:border-stone-900 outline-none transition-colors resize-none" placeholder="Special requirements, allergy info, etc."></textarea>
+                            </div>
+                            <div className="md:col-span-2 text-center mt-6">
+                                <button type="submit" className="bg-stone-900 text-white px-12 py-4 font-bold uppercase tracking-widest hover:bg-amber-600 transition-colors shadow-xl">Confirm Reservation</button>
+                            </div>
+                        </form>
+                    )}
+                </div>
+            </div>
+        </section>
+    );
+};
+
+const Footer: React.FC = () => (
+    <footer className="bg-stone-900 text-white py-16">
+        <div className="container mx-auto px-6">
+            <div className="grid md:grid-cols-4 gap-12 mb-12">
+                <div className="md:col-span-2">
+                    <h2 className="text-3xl font-serif mb-6">LUMIÈRE</h2>
+                    <p className="text-stone-400 max-w-xs mb-8">Crafting unforgettable culinary memories since 2008. Join us for a journey of elegance and flavor.</p>
+                    <div className="flex space-x-6">
+                        {['Instagram', 'Facebook', 'Twitter'].map(social => (
+                            <a key={social} href="#" className="text-xs font-bold uppercase tracking-widest text-stone-300 hover:text-amber-500 transition-colors">{social}</a>
+                        ))}
+                    </div>
+                </div>
+                <div>
+                    <h4 className="text-xs font-bold uppercase tracking-widest text-amber-500 mb-6">Explore</h4>
+                    <ul className="space-y-4 text-stone-300 text-sm">
+                        <li><a href="#about" className="hover:text-white transition-colors">About Us</a></li>
+                        <li><a href="#menu" className="hover:text-white transition-colors">Our Menu</a></li>
+                        <li><a href="#gallery" className="hover:text-white transition-colors">Gallery</a></li>
+                        <li><a href="#contact" className="hover:text-white transition-colors">Reservations</a></li>
+                    </ul>
+                </div>
+                <div>
+                    <h4 className="text-xs font-bold uppercase tracking-widest text-amber-500 mb-6">Contact</h4>
+                    <ul className="space-y-4 text-stone-300 text-sm">
+                        <li>+1 (212) 555-0198</li>
+                        <li>hello@lumieredining.com</li>
+                        <li>123 Culinary Ave, NY</li>
+                    </ul>
+                </div>
+            </div>
+            <div className="pt-8 border-t border-stone-800 text-center text-stone-500 text-xs tracking-widest uppercase">
+                &copy; {new Date().getFullYear()} Lumière Gastronomy. All rights reserved.
+            </div>
+        </div>
+    </footer>
+);
+
+export default function App() {
+  return (
+    <div className="min-h-screen">
+      <Navbar />
+      <Hero />
+      <About />
+      <MenuSection />
+      <Gallery />
+      <Location />
+      <Contact />
+      <Footer />
+    </div>
+  );
+}
